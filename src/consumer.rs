@@ -1,7 +1,5 @@
-use std::time::Duration;
-
 use piper_phoneme_streaming::G2pToken;
-use tokio::{sync::mpsc::Receiver, time::sleep};
+use tokio::sync::mpsc::Receiver;
 
 use crate::{
     Packet,
@@ -9,8 +7,6 @@ use crate::{
 };
 
 mod trunic;
-
-const SLEEP_TIME_MILLIS: u64 = 1000 / 30;
 
 pub async fn consumer(mut rx: Receiver<Packet>) -> anyhow::Result<()> {
     while let Some(packet) = rx.recv().await {
@@ -20,10 +16,6 @@ pub async fn consumer(mut rx: Receiver<Packet>) -> anyhow::Result<()> {
         };
         for ch in text.chars() {
             print!("{ch}");
-            // Flush stdout immediately
-            use std::io::{Write, stdout};
-            stdout().flush()?;
-            sleep(Duration::from_millis(SLEEP_TIME_MILLIS)).await;
         }
     }
     Ok(())
