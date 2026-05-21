@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
-use piper_phoneme_streaming::G2pToken;
+use phonetisaurus_g2p::PhonetizationResult;
 use tokio::sync::mpsc::channel;
 
 use crate::{consumer::consumer, producer::producer};
+
+const PHONETISAURUS_MODEL: &[u8] = include_bytes!("../models/en_us_mfa/embedded.fst");
 
 mod consumer;
 mod producer;
@@ -24,6 +26,6 @@ async fn main() {
 }
 
 enum Packet {
-    Phonetic(Arc<[G2pToken]>),
+    Phonetic(PhonetizationResult),
     Chars(Arc<str>),
 }

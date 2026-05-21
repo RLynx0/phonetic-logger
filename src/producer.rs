@@ -8,27 +8,30 @@ use nom::{
     combinator::{fail, map},
     multi::many0,
 };
-use piper_phoneme_streaming::{FullG2p, Language};
+use phonetisaurus_g2p::PhonetisaurusModel;
 use tokio::sync::mpsc::Sender;
 
-use crate::Packet;
+use crate::{PHONETISAURUS_MODEL, Packet};
 
 pub async fn producer(input: String, tx: Sender<Packet>) -> anyhow::Result<()> {
-    let g2p = FullG2p::new(Language::English)?;
+    let phonemizer = PhonetisaurusModel::try_from(PHONETISAURUS_MODEL)?;
     for part in split_text(&input)? {
         tx.send(match part {
             TextPart::NotAlphabetic(text) => Packet::Chars(text),
-            TextPart::Alphabetic(word) => to_phoneme_packet(&g2p, &word),
+            TextPart::Alphabetic(word) => to_phoneme_packet(&phonemizer, &word),
         })
         .await?
     }
     Ok(())
 }
 
-fn to_phoneme_packet(g2p: &FullG2p, word: &str) -> Packet {
-    match g2p.g2p(word) {
-        Ok(phonemes) => Packet::Phonetic(phonemes.into()),
-        Err(_) => Packet::Chars(word.into()),
+fn to_phoneme_packet(phonemizer: &PhonetisaurusModel, word: &str) -> Packet {
+    match phonemizer.phonemize_word(word) {
+        Ok(res) => Packet::Phonetic(res),
+        Err(e) => {
+            eprintln!("{e}");
+            Packet::Chars(word.into())
+        }
     }
 }
 

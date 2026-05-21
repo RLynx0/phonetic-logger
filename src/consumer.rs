@@ -1,4 +1,4 @@
-use piper_phoneme_streaming::G2pToken;
+use phonetisaurus_g2p::PhonetizationResult;
 use tokio::sync::mpsc::Receiver;
 
 use crate::{
@@ -12,7 +12,7 @@ pub async fn consumer(mut rx: Receiver<Packet>) -> anyhow::Result<()> {
     while let Some(packet) = rx.recv().await {
         let text = match packet {
             Packet::Chars(text) => text,
-            Packet::Phonetic(g2p_tokens) => consume_tokens(&g2p_tokens).into(),
+            Packet::Phonetic(res) => consume_phonemized(&res).into(),
         };
         for ch in text.chars() {
             print!("{ch}");
@@ -21,9 +21,9 @@ pub async fn consumer(mut rx: Receiver<Packet>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn consume_tokens(phonemes: &[G2pToken]) -> String {
-    let phonetic_word: String = phonemes.iter().map(|p| p.token).collect();
-    match to_trunic(phonemes) {
+fn consume_phonemized(phonemized: &PhonetizationResult) -> String {
+    let phonetic_word = &phonemized.phonemes;
+    match to_trunic(phonetic_word) {
         v if v.is_empty() => format!("[/{phonetic_word}/]"),
         v => format!(
             "[/{phonetic_word}/ : {}]",
@@ -32,7 +32,7 @@ fn consume_tokens(phonemes: &[G2pToken]) -> String {
     }
 }
 
-fn to_trunic(phonemes: &[G2pToken]) -> Vec<TrunicSymbol> {
+fn to_trunic(phonemes: &str) -> Vec<TrunicSymbol> {
     let mut symbols = Vec::new();
     let mut last = None;
 
@@ -54,19 +54,14 @@ fn to_trunic(phonemes: &[G2pToken]) -> Vec<TrunicSymbol> {
     symbols
 }
 
-fn to_trunic_first_pass(phonemes: &[G2pToken]) -> Vec<TrunicSymbol> {
+fn to_trunic_first_pass(phonemes: &str) -> Vec<TrunicSymbol> {
     let mut symbols = Vec::new();
     let mut i = 0usize;
     macro_rules! parse {
         ($p: expr => $v: expr) => {
-            if (phonemes[i..]
-                .iter()
-                .map(|p| p.token)
-                .collect::<String>()
-                .starts_with($p))
-            {
+            if (phonemes[i..].starts_with($p)) {
                 symbols.push($v);
-                i += $p.chars().count();
+                i += $p.len();
                 continue;
             }
         };
@@ -120,7 +115,10 @@ fn to_trunic_first_pass(phonemes: &[G2pToken]) -> Vec<TrunicSymbol> {
         parse!("l" => TrunicSymbol::C(TrunicConsonant::Lxx));
 
         // Fallback
-        i += 1;
+        if let Some(next_phoneme) = phonemes[i..].chars().next() {
+            // eprintln!("Could not parse {next_phoneme:?}");
+            i += next_phoneme.len_utf8();
+        }
     }
 
     symbols
