@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use piper_phoneme_streaming::G2pToken;
 use tokio::{sync::mpsc::Receiver, time::sleep};
@@ -31,7 +31,7 @@ pub async fn consumer(mut rx: Receiver<Packet>) -> anyhow::Result<()> {
 
 fn consume_tokens(phonemes: &[G2pToken]) -> String {
     let phonetic_word: String = phonemes.iter().map(|p| p.token).collect();
-    match to_trunic(&phonetic_word) {
+    match to_trunic(phonemes) {
         v if v.is_empty() => format!("[/{phonetic_word}/]"),
         v => format!(
             "[/{phonetic_word}/ : {}]",
@@ -40,11 +40,11 @@ fn consume_tokens(phonemes: &[G2pToken]) -> String {
     }
 }
 
-fn to_trunic(word: &str) -> Vec<TrunicSymbol> {
+fn to_trunic(phonemes: &[G2pToken]) -> Vec<TrunicSymbol> {
     let mut symbols = Vec::new();
     let mut last = None;
 
-    for symbol in to_trunic_first_pass(word) {
+    for symbol in to_trunic_first_pass(phonemes) {
         match (last, symbol) {
             (None, any) => last = Some(any),
             (Some(TrunicSymbol::C(c)), TrunicSymbol::V(v)) => last = Some(TrunicSymbol::CV(c, v)),
@@ -62,20 +62,25 @@ fn to_trunic(word: &str) -> Vec<TrunicSymbol> {
     symbols
 }
 
-fn to_trunic_first_pass(word: &str) -> Vec<TrunicSymbol> {
+fn to_trunic_first_pass(phonemes: &[G2pToken]) -> Vec<TrunicSymbol> {
     let mut symbols = Vec::new();
     let mut i = 0usize;
     macro_rules! parse {
         ($p: expr => $v: expr) => {
-            if (word[i..].starts_with($p)) {
+            if (phonemes[i..]
+                .iter()
+                .map(|p| p.token)
+                .collect::<String>()
+                .starts_with($p))
+            {
                 symbols.push($v);
-                i += $p.len();
+                i += $p.chars().count();
                 continue;
             }
         };
     }
 
-    while i < word.len() {
+    while i < phonemes.len() {
         // Vowels
         parse!("iː" => TrunicSymbol::V(TrunicVowel::Ii));
         parse!("uː" => TrunicSymbol::V(TrunicVowel::Uu));
@@ -123,10 +128,7 @@ fn to_trunic_first_pass(word: &str) -> Vec<TrunicSymbol> {
         parse!("l" => TrunicSymbol::C(TrunicConsonant::Lxx));
 
         // Fallback
-        if let Some(next_char) = word[i..].chars().next() {
-            // eprintln!("could not parse {next_char:?}");
-            i += next_char.len_utf8();
-        }
+        i += 1;
     }
 
     symbols

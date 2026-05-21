@@ -8,7 +8,7 @@ use nom::{
     combinator::{fail, map},
     multi::many0,
 };
-use piper_phoneme_streaming::{FullG2p, G2pToken, Language};
+use piper_phoneme_streaming::{FullG2p, Language};
 use tokio::sync::mpsc::Sender;
 
 use crate::Packet;
