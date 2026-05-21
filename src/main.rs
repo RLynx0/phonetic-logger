@@ -5,7 +5,7 @@ use tokio::sync::mpsc::channel;
 
 use crate::{consumer::consumer, producer::producer};
 
-const PHONETISAURUS_MODEL: &[u8] = include_bytes!("../models/en_us_mfa/embedded.fst");
+const PHONETISAURUS_MODEL: &[u8] = include_bytes!("../models/nb_e_written.fst");
 
 mod consumer;
 mod producer;

@@ -24,11 +24,8 @@ pub async fn consumer(mut rx: Receiver<Packet>) -> anyhow::Result<()> {
 fn consume_phonemized(phonemized: &PhonetizationResult) -> String {
     let phonetic_word = &phonemized.phonemes;
     match to_trunic(phonetic_word) {
-        v if v.is_empty() => format!("[/{phonetic_word}/]"),
-        v => format!(
-            "[/{phonetic_word}/ : {}]",
-            v.iter().map(|s| format!("{s:?}")).collect::<String>()
-        ),
+        v if v.is_empty() => format!("/{phonetic_word}/"),
+        v => v.iter().map(|s| format!("{s:?}")).collect(),
     }
 }
 
