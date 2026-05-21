@@ -1,24 +1,23 @@
 use std::{sync::Arc, time::Duration};
 
+use piper_phoneme_streaming::G2pToken;
 use tokio::{sync::mpsc::Receiver, time::sleep};
 
-use crate::consumer::trunic::{TrunicConsonant, TrunicSymbol, TrunicVowel};
+use crate::{
+    Packet,
+    consumer::trunic::{TrunicConsonant, TrunicSymbol, TrunicVowel},
+};
 
 mod trunic;
 
 const SLEEP_TIME_MILLIS: u64 = 1000 / 30;
 
-pub async fn consumer(mut rx: Receiver<Arc<str>>) -> anyhow::Result<()> {
-    while let Some(text) = rx.recv().await {
-        let text = match to_trunic(&text) {
-            v if v.is_empty() => text,
-            v => v
-                .iter()
-                .map(|s| format!("{s:?}"))
-                .collect::<String>()
-                .into(),
+pub async fn consumer(mut rx: Receiver<Packet>) -> anyhow::Result<()> {
+    while let Some(packet) = rx.recv().await {
+        let text = match packet {
+            Packet::Chars(text) => text,
+            Packet::Phonetic(g2p_tokens) => consume_tokens(&g2p_tokens).into(),
         };
-
         for ch in text.chars() {
             print!("{ch}");
             // Flush stdout immediately
@@ -28,6 +27,17 @@ pub async fn consumer(mut rx: Receiver<Arc<str>>) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+fn consume_tokens(phonemes: &[G2pToken]) -> String {
+    let phonetic_word: String = phonemes.iter().map(|p| p.token).collect();
+    match to_trunic(&phonetic_word) {
+        v if v.is_empty() => format!("[/{phonetic_word}/]"),
+        v => format!(
+            "[/{phonetic_word}/ : {}]",
+            v.iter().map(|s| format!("{s:?}")).collect::<String>()
+        ),
+    }
 }
 
 fn to_trunic(word: &str) -> Vec<TrunicSymbol> {
